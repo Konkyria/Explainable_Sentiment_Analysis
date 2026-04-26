@@ -1,0 +1,92 @@
+# Mount Google Drive
+from google.colab import drive
+drive.mount('/content/drive')
+
+# Unzip the compressed IMDb dataset (retrieved from https://www.kaggle.com/datasets/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews) stored in Google Drive to the same folder
+!unzip "/content/drive/MyDrive/MSc Thesis/IMDb Dataset.csv.zip" -d "/content/drive/MyDrive/MSc Thesis/"
+
+# Install required packages
+!pip install -q transformers tqdm
+
+# Import required libraries
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+import pandas as pd
+from tqdm import tqdm
+import torch
+import os
+
+# Load the MADLAD-400-3B-MT translation model and the tokenizer from Hugging Face (https://huggingface.co/google/madlad400-3b-mt)
+model = AutoModelForSeq2SeqLM.from_pretrained(
+    "google/madlad400-3b-mt",
+    dtype=torch.float16,
+    device_map="auto"
+)
+tokenizer = AutoTokenizer.from_pretrained("google/madlad400-3b-mt")
+model.eval()
+
+# Load the IMDb dataset from Google Drive
+data = pd.read_csv("/content/drive/MyDrive/MSc Thesis/IMDb Dataset.csv")
+# Print the first few and the last few rows of the dataset
+print(data.head())
+print("\n")
+print(data.tail())
+
+# Split the IMDb dataset into training and test sets (50/50 split)
+# First 25000 rows compose the training set
+training_df = data.iloc[:25000]
+# Remaining rows (from 25000 onward) compose the test set
+test_df = data.iloc[25000:]
+# Print the first few and the last few rows of the training set
+print("Training set:")
+print(training_df.head())
+print("\n")
+print(training_df.tail())
+print("\n")
+# Print the first few and the last few rows of the test set
+print("Test set:")
+print(test_df.head())
+print("\n")
+print(test_df.tail())
+
+# Sample 100 positive and 100 negative reviews from the test set to create a balanced test set
+test_sample = (test_df.groupby("sentiment", group_keys=False).sample(n=100, random_state=42).sample(frac=1, random_state=42).reset_index(drop=True))
+# Save the balanced test set
+output_path = "/content/drive/MyDrive/MSc Thesis/sample_test_data.csv"
+test_sample.to_csv(output_path, index=False)
+print(f"Saved test set file to {output_path}")
+
+# Translation function
+def translate_texts(texts, desc, batch_size=2):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    translated = []
+    for i in tqdm(range(0, len(texts), batch_size), desc=desc):
+        batch = [f"<2el> {text}" for text in texts[i:i+batch_size]]
+        inputs = tokenizer(batch, return_tensors="pt", padding=True, truncation=True, max_length=512).to(device)
+        with torch.no_grad():
+            outputs = model.generate(**inputs, max_new_tokens=512)
+        decoded = tokenizer.batch_decode(outputs, skip_special_tokens=True)
+        translated.extend(decoded)
+    return translated
+
+# Sampling and translation function with checkpointing to create balanced training sets
+def sample_and_translate(set_sizes=[1000, 2000]):
+    for set_size in set_sizes:
+        output_path = f"/content/drive/MyDrive/MSc Thesis/sample_training_data_{set_size}.csv"
+        # Checkpoint: Skip translation, if the file already exists
+        if os.path.exists(output_path):
+            print(f"{output_path} already exists. Skipping...")
+            continue
+        # Sample an equal number of positive and negative reviews from the training set to create a balanced training set
+        training_sample = (training_df.groupby("sentiment", group_keys=False).sample(n=set_size // 2, random_state=42).sample(frac=1, random_state=42).reset_index(drop=True))
+        print(f"Translating {set_size} samples...")
+        # Translate the reviews to Greek
+        training_sample["review"] = translate_texts(training_sample["review"], desc=f"Translating {set_size} reviews")
+        # Map the sentiment labels to Greek
+        label_map = {"positive": "θετικό", "negative": "αρνητικό"}
+        training_sample["sentiment"] = training_sample["sentiment"].map(label_map)
+        # Save the balanced and translated training set
+        training_sample.to_csv(output_path, index=False)
+        print(f"Saved translated training set file to {output_path}")
+
+# Run the sampling and translation function
+sample_and_translate()
