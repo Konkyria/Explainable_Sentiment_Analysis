@@ -1,0 +1,232 @@
+# Mount Google Drive
+from google.colab import drive
+drive.mount('/content/drive')
+
+# Install required packages
+!pip install -U spacy
+!python -m spacy download el_core_news_sm
+!pip install llama-cpp-python
+!pip install tqdm
+
+# Import required libraries
+import pandas as pd
+import os
+import spacy
+from tqdm import tqdm
+from llama_cpp import Llama
+import random
+random.seed(42)
+import unicodedata
+
+# Load the quantized Meltemi model (.gguf) using llama-cpp-python
+meltemi_llm = Llama(
+    model_path="/content/drive/MyDrive/MSc Thesis/meltemi.gguf",
+    n_ctx=8192,
+    n_threads=8,
+    n_batch=256,
+    verbose=False
+)
+
+# Load the quantized Llama-Krikri model (.gguf) using llama-cpp-python
+llama_krikri_llm = Llama(
+    model_path="/content/drive/MyDrive/MSc Thesis/llama-krikri.gguf",
+    n_ctx=8192,
+    n_threads=8,
+    n_batch=256,
+    verbose=False
+)
+
+# Define the best-performing shot per model (only including the explanation_then_sentiment variant)
+variants = ["meltemi_16_shot_explanation_then_sentiment", "llama_krikri_6_shot_explanation_then_sentiment"]
+
+all_dfs = []
+
+# Extract only the explanation part from the model_output
+def extract_explanation(text):
+    explanation = ""
+    lines = text.split("\n")
+    for line in lines:
+        if line.strip().startswith("Εξήγηση:"):
+            explanation = line.replace("Εξήγηση:", "").strip()
+    return explanation
+
+# Load and process each variant
+for variant in variants:
+    try:
+        path = f"/content/drive/MyDrive/MSc Thesis/Test/{variant}_final.csv"
+        df = pd.read_csv(path)
+
+        # Extract only the explanation part from the model_output
+        df["original_explanation"] = df["model_output"].apply(extract_explanation)
+
+        # Keep only necessary columns and prepare the final format
+        df_final = df[["greek_review", "original_explanation"]].copy()
+        df_final["variant"] = variant
+
+        all_dfs.append(df_final)
+
+    except Exception as e:
+        print(f"Error processing {variant}: {e}")
+
+# Combine both variants into one dataframe
+final_df = pd.concat(all_dfs, ignore_index=True)
+
+# Load Greek spaCy model
+nlp = spacy.load("el_core_news_sm")
+
+# Mask 50% of eligible ADJ, ADV, NOUN, VERB tokens within each explanation
+def mask_selected_pos(text, mask_ratio=0.5):
+    doc = nlp(text)
+    selected_pos = {"ADJ", "ADV", "NOUN", "VERB"}
+
+    # Select eligible token indices
+    indices = [i for i, token in enumerate(doc) if token.pos_ in selected_pos]
+
+    # Randomly select a subset to mask
+    num_to_mask = int(len(indices) * mask_ratio)
+    mask_indices = set(random.sample(indices, num_to_mask)) if num_to_mask > 0 else set()
+
+    # Create masked version
+    masked_tokens = [("[MASK]" + token.whitespace_) if i in mask_indices else token.text_with_ws for i, token in enumerate(doc)]
+
+    return "".join(masked_tokens)
+
+# Apply masking
+final_df["masked_explanation"] = final_df["original_explanation"].apply(mask_selected_pos)
+
+# Split by variant
+meltemi_df = final_df[final_df["variant"] == "meltemi_16_shot_explanation_then_sentiment"].copy()
+llama_krikri_df = final_df[final_df["variant"] == "llama_krikri_6_shot_explanation_then_sentiment"].copy()
+
+# Save each variant separately
+meltemi_path = "/content/drive/MyDrive/MSc Thesis/meltemi_masking.csv"
+llama_krikri_path = "/content/drive/MyDrive/MSc Thesis/llama_krikri_masking.csv"
+
+meltemi_df.to_csv(meltemi_path, index=False)
+llama_krikri_df.to_csv(llama_krikri_path, index=False)
+
+print(f"Saved Meltemi masking to: {meltemi_path}")
+print(f"Saved Llama-Krikri masking to: {llama_krikri_path}")
+
+# Prompt template
+def prompt_template(explanation):
+    base_instruction = (
+        "Είσαι ένας ειδικός αναλυτής συναισθημάτων για κριτικές ταινιών.\n"
+        "Ανάλυσε προσεκτικά την παρακάτω εξήγηση και καθόρισε ξεκάθαρα αν εκφράζει θετικό ή αρνητικό συναίσθημα.\n"
+        f"Εξήγηση: «{explanation}»\n"
+        "Με βάση την εξήγηση, απάντησε μόνο με μία από τις δύο λέξεις (θετικό ή αρνητικό) με την ακόλουθη μορφή:\n"
+        "Συναίσθημα: [θετικό ή αρνητικό]\n"
+        "Μην προσθέσεις καμία άλλη λέξη ή εξήγηση.\n"
+        "Απάντηση:\n"
+    )
+    return base_instruction
+
+# Prediction
+def predict(csv_path, llm, input_column="masked_explanation", output_column="masked_sentiment"):
+    # Load the specific CSV
+    if os.path.exists(csv_path):
+        print(f"Loading file: {csv_path}")
+        df = pd.read_csv(csv_path)
+    else:
+        raise FileNotFoundError(f"{csv_path} not found.")
+
+    # Add empty output_column, if missing
+    if output_column not in df.columns:
+        df[output_column] = ""
+
+    # Iterate through the dataset with progress bar
+    for i, row in tqdm(df.iterrows(), total=len(df)):
+        # Skip, if already predicted
+        if isinstance(row[output_column], str) and row[output_column].strip():
+            continue
+
+        explanation = row[input_column]
+        prompt = prompt_template(explanation)
+
+        try:
+            # Run the model with the generated prompt
+            output = llm(
+                prompt,
+                max_tokens=200,
+                temperature=0.1,
+                top_p=0.9,
+                seed=42,
+            )
+
+            # Extract the model's answer text from the output structure
+            answer = output["choices"][0]["text"].strip()
+
+        # If an error occurs during generation, store the error message instead
+        except Exception as e:
+            answer = f"Error: {e}"
+
+        df.at[i, output_column] = answer
+
+        # Save a checkpoint every 10 samples to prevent data loss
+        if (i + 1) % 10 == 0:
+            df.to_csv(csv_path, index=False)
+            print(f"Checkpoint saved at index {i + 1}")
+
+    # Final save after the loop ends
+    df.to_csv(csv_path, index=False)
+    print(f"Final predictions saved to: {output_column} in {csv_path}")
+
+    return df
+
+# Convert Greek sentiment labels to English equivalents
+def normalize_sentiment(text):
+    if not isinstance(text, str):
+        text = str(text)
+
+    # Clean the text
+    sentiment = text.lower().strip()
+
+    # Remove accents for more robust matching
+    sentiment = unicodedata.normalize('NFD', sentiment)
+    sentiment = ''.join(c for c in sentiment if unicodedata.category(c) != 'Mn')
+
+    if 'θετικ' in sentiment:
+        return "positive"
+    elif 'αρνητικ' in sentiment:
+        return "negative"
+    else:
+        return "unknown"
+
+# Evaluation
+def evaluate(df, csv_path):
+    # Convert Greek sentiment labels to English equivalents
+    df["original_sentiment_normalized"] = df["original_sentiment"].apply(normalize_sentiment)
+    df["masked_sentiment_normalized"] = df["masked_sentiment"].apply(normalize_sentiment)
+
+    # Compute flip rate
+    df["sentiment_changed"] = df["original_sentiment_normalized"] != df["masked_sentiment_normalized"]
+    flip_rate = df["sentiment_changed"].mean()
+    print(f"Agreement: {(1-flip_rate)*100:.2f}%  ---  Flip rate: {flip_rate*100:.2f}%")
+
+    # Save updated CSV
+    df.to_csv(csv_path, index=False)
+    print(f"Results saved to: {csv_path}")
+
+# Experimentation
+
+# Experimentation for Meltemi
+
+# Run predictions
+predict(meltemi_path, meltemi_llm, input_column="original_explanation", output_column="original_sentiment")
+meltemi_df = predict(meltemi_path, meltemi_llm, input_column="masked_explanation", output_column="masked_sentiment")
+
+# Evaluate Meltemi
+print("\n--- Evaluation for Meltemi ---")
+evaluate(meltemi_df, meltemi_path)
+
+print("\n")
+
+# Experimentation for Llama-Krikri
+
+# Run predictions
+predict(llama_krikri_path, llama_krikri_llm, input_column="original_explanation", output_column="original_sentiment")
+llama_krikri_df = predict(llama_krikri_path, llama_krikri_llm, input_column="masked_explanation", output_column="masked_sentiment")
+
+# Evaluate Llama-Krikri
+print("\n--- Evaluation for Llama-Krikri ---")
+evaluate(llama_krikri_df, llama_krikri_path)
