@@ -174,8 +174,8 @@ All long-running scripts **checkpoint to CSV** and skip already-processed rows, 
 ## Reproducibility notes
 
 - Random seeds are fixed (`torch.manual_seed(42)`, `random.seed(42)`, `random_state=42`) throughout sampling, training, and generation.
-- Greedy decoding (`do_sample=False`) is used for the Transformers models; GGUF inference uses low temperature (`0.1`) with a fixed seed.
-- QLoRA config: 4-bit **NF4** with double quantization, LoRA `r=8`, `alpha=16`, `dropout=0.05`, targeting all attention/MLP projections; 3 epochs, LR `2e-4`, effective batch size 8 (2 × grad-accum 4).
+- Greedy decoding (`do_sample=False`) is used for the Transformers models, GGUF inference uses low temperature (`0.1`) with a fixed seed.
+- QLoRA config: 4-bit **NF4** with double quantization, LoRA `r=8`, `alpha=16`, `dropout=0.05`, targeting all attention/MLP projections, 3 epochs, LR `2e-4`, effective batch size 8 (2 × grad-accum 4).
 
 ---
 
