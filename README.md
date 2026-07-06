@@ -75,7 +75,7 @@ The scripts are meant to be run in the following order. Each was developed as a 
 
 | Script | Stage | Description |
 |--------|-------|-------------|
-| `Sampling and Machine Translation.py` | Data prep | Splits IMDb 50/50, draws balanced samples (1,000 & 2,000 train - 200 test), and translates reviews EN→EL with MADLAD-400-3B-MT. Labels are mapped to Greek (`θετικό`/`αρνητικό`). Checkpointed and resumable. |
+| `Sampling and Machine Translation.py` | Data prep | Splits IMDb 50/50, draws balanced samples (1k & 2k train - 200 test), and translates reviews EN→EL with MADLAD-400-3B-MT. Labels are mapped to Greek (`θετικό`/`αρνητικό`). Checkpointed and resumable. |
 | `Meltemi GGUF.py` | Few-shot baseline | Runs quantized **Meltemi** (Q4_K_M GGUF via `llama-cpp-python`) over `{0,2,4,6,8,16}` shots × 3 variants. Reports accuracy, per-class precision/recall/F1, and macro-F1. |
 | `Llama-Krikri GGUF.py` | Few-shot baseline | Same protocol as above for **Llama-Krikri**. |
 | `Training Explanations Generation.py` | Fine-tuning data prep | Uses each base model (4-bit) to generate a gold-sentiment-conditioned explanation for every training review, producing the explanation-augmented CSVs used for fine-tuning. Caches shared reviews across the 1k/2k sets. |
@@ -142,7 +142,7 @@ python -m spacy download el_core_news_sm
 
 - **Source:** [IMDb 50K Movie Reviews](https://www.kaggle.com/datasets/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews) (Kaggle).
 - **Split:** first 25,000 rows → training pool, remaining 25,000 → test pool (50/50).
-- **Sampling:** class-balanced samples of **1,000** and **2,000** training reviews and a balanced **200-review** test set (100 positive + 100 negative).
+- **Sampling:** class-balanced samples of **1k** and **2k** training reviews and a balanced **200-review** test set (100 positive + 100 negative).
 - **Translation:** English → Greek with MADLAD-400-3B-MT (`<2el>` prefix).
 - **Explanations:** model-generated (for fine-tuning data) and **human gold references** (for judging).
 
