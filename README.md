@@ -85,7 +85,6 @@ The scripts are meant to be run in the following order. Each was developed as a 
 | `Explanations Evaluation.py` | Explanation quality | Uses **Gemini 2.5 Pro** as an automatic judge scoring model explanations on four criteria, then correlates the LLM scores against **human** scores (Pearson / Spearman / Kendall τ). |
 | `Masking.py` | Faithfulness | Masks 50% of content words (ADJ/ADV/NOUN/VERB via Greek spaCy) in each explanation and measures how often the predicted sentiment **flips** — a proxy for whether explanations are faithful to the decision. |
 
-> **Note on filenames:** the scripts were exported from Colab, so your local/GitHub copies may carry suffixes such as `(1)`, `(2)`, etc. The table above uses clean names; match them to the corresponding exported file.
 
 ---
 
