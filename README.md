@@ -134,7 +134,7 @@ python -m spacy download el_core_news_sm
 
 - **GPU with CUDA** is required for 4-bit (QLoRA / bitsandbytes) inference and fine-tuning.
 - A **Google Gemini API key** is required for `Explanations Evaluation.py` (set it where the code reads `genai.configure(api_key=...)`).
-- Hugging Face access to the ILSP models and the MADLAD-400 translator.
+- Hugging Face access to the ILSP models and the MADLAD-400 model.
 
 ---
 
