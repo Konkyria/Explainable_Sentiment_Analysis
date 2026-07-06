@@ -75,7 +75,7 @@ The scripts are meant to be run in the following order. Each was developed as a 
 
 | Script | Stage | Description |
 |--------|-------|-------------|
-| `Sampling and Machine Translation.py` | Data prep | Splits IMDb 50/50, draws balanced samples (1,000 & 2,000 train; 200 test), and translates reviews EN→EL with MADLAD-400-3B-MT. Labels are mapped to Greek (`θετικό`/`αρνητικό`). Checkpointed and resumable. |
+| `Sampling and Machine Translation.py` | Data prep | Splits IMDb 50/50, draws balanced samples (1,000 & 2,000 train - 200 test), and translates reviews EN→EL with MADLAD-400-3B-MT. Labels are mapped to Greek (`θετικό`/`αρνητικό`). Checkpointed and resumable. |
 | `Meltemi GGUF.py` | Few-shot baseline | Runs quantized **Meltemi** (Q4_K_M GGUF via `llama-cpp-python`) over `{0,2,4,6,8,16}` shots × 3 variants. Reports accuracy, per-class precision/recall/F1, and macro-F1. |
 | `Llama-Krikri GGUF.py` | Few-shot baseline | Same protocol as above for **Llama-Krikri**. |
 | `Training Explanations Generation.py` | Fine-tuning data prep | Uses each base model (4-bit) to generate a gold-sentiment-conditioned explanation for every training review, producing the explanation-augmented CSVs used for fine-tuning. Caches shared reviews across the 1k/2k sets. |
@@ -111,7 +111,7 @@ Standard metrics computed after robust, accent-insensitive parsing of the Greek 
 Judge scores are then validated against **human ratings** using Pearson, Spearman, and Kendall τ correlations, and broken down by model, variant, and review length (short/medium/long).
 
 ### 3. Faithfulness (masking / flip-rate test)
-Content words in an explanation are masked and the model is asked to re-predict sentiment **from the masked explanation alone**. A low **flip rate** (high agreement between original and masked predictions) indicates the sentiment signal is diffuse; a high flip rate indicates the masked tokens genuinely carried the sentiment — a lightweight faithfulness probe.
+Content words in an explanation are masked and the model is asked to re-predict sentiment **from the masked explanation alone**. A low **flip rate** (high agreement between original and masked predictions) indicates the sentiment signal is diffuse, while a high flip rate indicates the masked tokens genuinely carried the sentiment — a lightweight faithfulness probe.
 
 ---
 
