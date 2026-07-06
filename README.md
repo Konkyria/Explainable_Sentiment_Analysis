@@ -78,10 +78,10 @@ The scripts are meant to be run in the following order. Each was developed as a 
 | `Sampling and Machine Translation.py` | Data prep | Splits IMDb 50/50, draws balanced samples (1,000 & 2,000 train; 200 test), and translates reviews EN→EL with MADLAD-400-3B-MT. Labels are mapped to Greek (`θετικό`/`αρνητικό`). Checkpointed and resumable. |
 | `Meltemi GGUF.py` | Few-shot baseline | Runs quantized **Meltemi** (Q4_K_M GGUF via `llama-cpp-python`) over `{0,2,4,6,8,16}` shots × 3 variants. Reports accuracy, per-class precision/recall/F1, and macro-F1. |
 | `Llama-Krikri GGUF.py` | Few-shot baseline | Same protocol as above for **Llama-Krikri**. |
-| `Training Explanations Generation.py` | FT data prep | Uses each base model (4-bit) to generate a gold-sentiment-conditioned explanation for every training review, producing the explanation-augmented CSVs used for fine-tuning. Caches shared reviews across the 1k/2k sets. |
+| `Training Explanations Generation.py` | Fine-tuning data prep | Uses each base model (4-bit) to generate a gold-sentiment-conditioned explanation for every training review, producing the explanation-augmented CSVs used for fine-tuning. Caches shared reviews across the 1k/2k sets. |
 | `Fine-tuning.py` | Fine-tuning | **QLoRA** (4-bit NF4 + LoRA) fine-tuning of both models on both set sizes, for the three 0-shot variants. Loss is computed **only on the answer tokens**. Adapters are checkpointed and resumable. |
-| `Meltemi Fine-tuned.py` | FT evaluation | Loads the fine-tuned Meltemi LoRA adapters (1k & 2k) and evaluates sentiment accuracy + explanation length on the test set. |
-| `Llama-Krikri Fine-tuned.py` | FT evaluation | Same evaluation for the fine-tuned Llama-Krikri adapters. |
+| `Meltemi Fine-tuned.py` | Fine-tuning evaluation | Loads the fine-tuned Meltemi LoRA adapters (1k & 2k) and evaluates sentiment accuracy + explanation length on the test set. |
+| `Llama-Krikri Fine-tuned.py` | Fine-tuning evaluation | Same evaluation for the fine-tuned Llama-Krikri adapters. |
 | `Explanations Evaluation.py` | Explanation quality | Uses **Gemini 2.5 Pro** as an automatic judge scoring model explanations on four criteria, then correlates the LLM scores against **human** scores (Pearson / Spearman / Kendall τ). |
 | `Masking.py` | Faithfulness | Masks 50% of content words (ADJ/ADV/NOUN/VERB via Greek spaCy) in each explanation and measures how often the predicted sentiment **flips** — a proxy for whether explanations are faithful to the decision. |
 
@@ -151,7 +151,7 @@ Generated artifacts referenced by the scripts include:
 
 ```
 sample_training_data_{1000,2000}.csv                 # balanced, Greek-translated training sets
-sample_training_data_{1000,2000}_explanations.csv    # + model-generated explanations (FT data)
+sample_training_data_{1000,2000}_explanations.csv    # + model-generated explanations (Fine-tuning data)
 sample_test_dataset.csv                              # balanced test set
 gold_references.csv                                  # human gold explanations
 scored_explanations.csv / scored_explanations_human.csv
