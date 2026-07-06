@@ -184,9 +184,7 @@ All long-running scripts **checkpoint to CSV** and skip already-processed rows, 
 
 ## Author
 
-**Konstantinos Kyriakopoulos** — MSc Thesis in Explainable Sentiment Analysis.
-
-*Please add your university, department, supervisor, and submission year here.*
+**Konstantinos Kyriakopoulos** — MSc Thesis
 
 ## Acknowledgements
 
@@ -195,5 +193,3 @@ All long-running scripts **checkpoint to CSV** and skip already-processed rows, 
 - The [IMDb 50K](https://www.kaggle.com/datasets/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews) dataset authors.
 
 ## License
-
-*No license specified yet. Consider adding one (e.g., MIT for code) — until then, all rights reserved.*
