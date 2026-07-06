@@ -158,8 +158,6 @@ meltemi_{1000,2000}/ , llama_krikri_{1000,2000}/     # saved LoRA adapters
 meltemi.gguf , llama-krikri.gguf                     # quantized model weights
 ```
 
-> The raw dataset and generated CSVs / model weights are **not** included in the repository. All scripts expect a Google Drive folder at `/content/drive/MyDrive/MSc Thesis/`; adjust the paths if you run them elsewhere.
-
 ---
 
 ## How to run
