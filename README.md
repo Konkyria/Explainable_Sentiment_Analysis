@@ -1,4 +1,4 @@
-# Explainable Sentiment Analysis in Greek with Large Language Models
+# Evaluation of Greek-language LLM behavior for sentiment classification and explanation generation under prompt variation 
 
 > MSc Thesis — Sentiment classification **and** natural-language explanations for Greek movie reviews, using open Greek LLMs (**Meltemi-7B** and **Llama-Krikri-8B**).
 
